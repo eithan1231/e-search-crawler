@@ -1,0 +1,4 @@
+# Node one
+- hostname: localhost
+  password: Password1
+  port: 6379

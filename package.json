@@ -1,0 +1,22 @@
+{
+  "name": "e-search-crawler",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "decompress-response": "^4.2.0",
+    "domutils": "^1.7.0",
+    "he": "^1.2.0",
+    "htmlparser2": "^3.10.1",
+    "js-yaml": "^3.13.1",
+    "micromatch": "^4.0.2",
+    "once": "^1.4.0",
+    "redis": "^2.8.0"
+  }
+}

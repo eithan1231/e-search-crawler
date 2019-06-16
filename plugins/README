@@ -1,0 +1,13 @@
+Plugin Documentation for esearch
+
+
+Our plugin system works with simple hooks. If you want to hook a function, you
+export a object whose key corresponds to a hook.
+
+Hooks:
+
+QUEUE_URL:
+Parameters: url
+
+Purpose: When pushign a URL to queue, this can alter what you're pushing into
+the queue

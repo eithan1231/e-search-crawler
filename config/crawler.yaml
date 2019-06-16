@@ -1,0 +1,32 @@
+# Amount of con-current crawlers.
+# Default: 32
+concurrency: 32
+
+# maximum retrys for a crawler.
+# Default: 100
+retryThreshold: 100
+
+# Maximum amount of redirects we follow before we stop following
+# Default: 10
+redirectLimit: 10
+
+# Maximum life of a cookie in seconds.
+# Default: 3600 (1 hour)
+cookieDurationLimit: 3600
+
+# Amount of times we will try recrawl a page if it returns a http 5xx error.
+# Default: 3
+retryErrorCount: 3
+
+# Restricts the amount of entries a specific domain can have in queue. Prevents
+# over-crawling of a specific page.
+# NOTE: Whenever you reach this limit, and it crawls a page. The possibility of
+# it re-adding a url on the same hostname to the queue is high. So try keep this
+# low, as it will still continue to crawl the site when limit is reached.
+# Default: 17
+domainQueueLimit: 17
+
+# Maximum amount of URL's we can scrape from a singular page. The default value
+# may even perhaps be too big.
+# Default: 9
+maxPageUrlScrape: 9
