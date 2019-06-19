@@ -1,6 +1,6 @@
 const url = require('url');
 const querystring = require('querystring');
-const tlds = require('./tlds.json');
+const tldSld = require('./data/tld_sld.json');
 
 /**
 * Manages which pages to crawl and stuff.
@@ -134,6 +134,7 @@ class PageQueue
   */
   async domainQueueCount(domain)
   {
+    domain = PageQueue.stripSubDomains(domain);
     const key = PageQueue.queueCountKey(domain);
     const value = await this.redisConnector.getAsync(key);
     if(value) {
@@ -148,6 +149,7 @@ class PageQueue
   */
   async incrementDomainQueueCount(domain)
   {
+    domain = PageQueue.stripSubDomains(domain);
     return await this.redisConnector.incrAsync(
       PageQueue.queueCountKey(domain)
     );
@@ -169,6 +171,7 @@ class PageQueue
   */
   async decrementDomainQueueCount(domain)
   {
+    domain = PageQueue.stripSubDomains(domain);
     return await this.redisConnector.decrAsync(
       PageQueue.queueCountKey(domain)
     );
@@ -181,23 +184,40 @@ class PageQueue
   async decrementDomainQueueCountByUrl(subject)
   {
     const parsed = url.parse(subject);
-    return await this.decrementDomainQueueCount(parsed.hostname);
+    return await this.decrementDomainQueueCount(
+      PageQueue.stripSubDomains(parsed.hostname)
+    );
   }
 
-  static _stripSubDomains(domain)
+  /**
+  * Highly efficient way to remove sub-domains from a domain.
+  */
+  static stripSubDomains(domain)
   {
-    for (const tld of tlds) {
-      if(domain.lastIndexOf(tld) === domain.length - tld.length) {
-        const indexOfSubdomain = domain.lastIndexOf('.', domain.length - tld.length - 1);
-        if(indexOfSubdomain <= 0) {
-          return domain;
-        }
+    // Prepare yourself for uncommented messy code.
 
-        return domain.substring(indexOfSubdomain);
+    domain = domain.toLowerCase();
+    const tldPosition = domain.lastIndexOf('.');
+    if(tldPosition > 0) {
+      const tld = domain.substring(tldPosition + 1);
+      const sldPosition = domain.lastIndexOf('.', tldPosition - 1);
+      if(sldPosition > 0) {
+        const sld = domain.substring(sldPosition + 1);
+        if(typeof tldSld[tld] === 'object') {
+          if(tldSld[tld].includes(sld)) {
+            const preSldPosition = domain.lastIndexOf('.', sldPosition - 1);
+            if(preSldPosition > 0) {
+              return domain.substring(preSldPosition + 1);
+            }
+            else {
+              return domain;
+            }
+          }
+        }
+        return sld;
       }
     }
 
-    // Doesn't have a tld??
     return domain;
   }
 

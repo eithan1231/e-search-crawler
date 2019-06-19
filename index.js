@@ -18,10 +18,6 @@ const util = require('./library/util');
 util.promisifyAll(redis.RedisClient.prototype);
 util.promisifyAll(redis.Multi.prototype);
 
-const start = new Date();
-console.log(PageQueue._stripSubDomains('xx.ss.test.com'));
-return console.log(((new Date()).getTime()) - start.getTime());
-
 // Our user agent.
 // NOTE: Changing this is not reommended. We would advise leaving as is. If you
 // do want to change it, make sure you change it before you start crawling, and
