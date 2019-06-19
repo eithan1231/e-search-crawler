@@ -35,7 +35,7 @@ async function main()
     const redisClient = redis.createClient({
       host: redisConfigSelection.hostname,
       port: redisConfigSelection.port,
-      password: redisConfigSelection.password,
+      password: redisConfigSelection.password || undefined,
       retry_strategy: redisRetryStrategy
     });
 
