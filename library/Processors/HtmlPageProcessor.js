@@ -53,6 +53,8 @@ class HtmlPageProcessor
   async processPage(request, response, subject, subjectOptions)
   {
     try {
+      response.on('error', console.error);
+
       const dom = await this._bufferParse(response);
       if(!dom) {
         // Bad Object.
@@ -253,9 +255,13 @@ class HtmlPageProcessor
       });
       let parser = new htmlparser.Parser(domHandler);
 
+      response.on('error', reject);
+
       response.on('data', (data) =>
         parser.write(data.toString())
-      ).on('end', () => parser.end());
+      );
+
+      response.on('end', () => parser.end());
     });
   }
 }

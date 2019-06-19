@@ -1,5 +1,6 @@
 const url = require('url');
 const querystring = require('querystring');
+const tlds = require('./tlds.json');
 
 /**
 * Manages which pages to crawl and stuff.
@@ -20,23 +21,26 @@ class PageQueue
   * @param options Additional information about the URL. You may set referer and
   * other things.
   */
-  async forceQueue(url, options)
+  async forceQueue(subject, options)
   {
-    url = this._checkUrl(url);
-    if(!url) {
+    subject = this._checkUrl(subject);
+    if(!subject) {
       return false;
     }
 
+    const parsedUrl = url.parse(subject);
+
     const keyList = PageQueue._buildKey();
-    const key = PageQueue._buildKey(url);
+    const key = PageQueue._buildKey(subject);
 
     const keyValue = JSON.stringify({
-      url: url,
+      url: subject,
       options: this._buildOptions(options)
     });
 
     await this.redisConnector.setAsync(key, keyValue);
     await this.redisConnector.lpushAsync(keyList, key);
+    await this.incrementDomainQueueCount(parsedUrl.hostname);
 
     return true;
   }
@@ -47,21 +51,23 @@ class PageQueue
   * @param options Additional information about the URL. You may set referer and
   * other things.
   */
-  async pushQueue(url, options)
+  async pushQueue(subject, options)
   {
-    url = this._checkUrl(url);
-    if(!url) {
+    subject = this._checkUrl(subject);
+    if(!subject) {
       return false;
     }
 
+    const parsedUrl = url.parse(subject);
+
     const keyList = PageQueue._buildKey();
-    const key = PageQueue._buildKey(url);
+    const key = PageQueue._buildKey(subject);
 
     // checking if key exists
     if(await this.redisConnector.existsAsync(key) === 0) {
 
       const keyValue = JSON.stringify({
-        url: url,
+        url: subject,
         options: this._buildOptions(options)
       });
 
@@ -70,6 +76,8 @@ class PageQueue
 
       // pushing key to queue
       await this.redisConnector.lpushAsync(keyList, key);
+
+      await this.incrementDomainQueueCount(parsedUrl.hostname);
 
       return true;
     }
@@ -86,7 +94,9 @@ class PageQueue
     const keyList = PageQueue._buildKey();
 
     if(this.localQueue.length > 0) {
-      return this.localQueue.pop();
+      const ret = this.localQueue.pop();
+      await this.decrementDomainQueueCountByUrl(ret.url);
+      return ret;
     }
 
     for(let i = 0; i < 32; i++) {
@@ -110,7 +120,9 @@ class PageQueue
     }
 
     if(this.localQueue.length > 0) {
-      return this.localQueue.pop();
+      const ret = this.localQueue.pop();
+      await this.decrementDomainQueueCountByUrl(ret.url);
+      return ret;
     }
 
     return null;
@@ -136,8 +148,19 @@ class PageQueue
   */
   async incrementDomainQueueCount(domain)
   {
-    const key = PageQueue.queueCountKey(domain);
-    return await this.redisConnector.incrAsync(key);
+    return await this.redisConnector.incrAsync(
+      PageQueue.queueCountKey(domain)
+    );
+  }
+
+  /**
+  * Increments the amount of urls in the queue for a specific domain.
+  * @param subject URL
+  */
+  async incrementDomainQueueCountByUrl(subject)
+  {
+    const parsed = url.parse(subject);
+    return await this.incrementDomainQueueCount(parsed.hostname);
   }
 
   /**
@@ -149,6 +172,33 @@ class PageQueue
     return await this.redisConnector.decrAsync(
       PageQueue.queueCountKey(domain)
     );
+  }
+
+  /**
+  * Decrements the amount of urls in queue for a specific domain
+  * @param subject URL (Domain is extracted)
+  */
+  async decrementDomainQueueCountByUrl(subject)
+  {
+    const parsed = url.parse(subject);
+    return await this.decrementDomainQueueCount(parsed.hostname);
+  }
+
+  static _stripSubDomains(domain)
+  {
+    for (const tld of tlds) {
+      if(domain.lastIndexOf(tld) === domain.length - tld.length) {
+        const indexOfSubdomain = domain.lastIndexOf('.', domain.length - tld.length - 1);
+        if(indexOfSubdomain <= 0) {
+          return domain;
+        }
+
+        return domain.substring(indexOfSubdomain);
+      }
+    }
+
+    // Doesn't have a tld??
+    return domain;
   }
 
   /**

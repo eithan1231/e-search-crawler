@@ -18,6 +18,10 @@ const util = require('./library/util');
 util.promisifyAll(redis.RedisClient.prototype);
 util.promisifyAll(redis.Multi.prototype);
 
+const start = new Date();
+console.log(PageQueue._stripSubDomains('xx.ss.test.com'));
+return console.log(((new Date()).getTime()) - start.getTime());
+
 // Our user agent.
 // NOTE: Changing this is not reommended. We would advise leaving as is. If you
 // do want to change it, make sure you change it before you start crawling, and
@@ -52,9 +56,9 @@ async function main()
       crawlerConfig.cookieDurationLimit
     );
 
-    pageQueue.pushQueue('http://dmozlive.com');
-    //pageQueue.forceQueue('https://lechr.com');
-    //pageQueue.forceQueue('https://www.youtube.com/watch?v=zAPhp9LYq44');
+    pageQueue.forceQueue('http://dmozlive.com');
+    pageQueue.forceQueue('https://lechr.com');
+    pageQueue.forceQueue('https://www.youtube.com/watch?v=zAPhp9LYq44');
 
     // Starting the crawler.
     const crawler = new Crawler({
