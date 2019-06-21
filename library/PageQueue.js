@@ -222,7 +222,7 @@ class PageQueue
   }
 
   /**
-  * Checks and returns a correct version of a url.
+  * Checks and returns a corrected version of a url.
   */
   _checkUrl(subject)
   {
@@ -248,6 +248,10 @@ class PageQueue
       );
     }
 
+    if(parsed.hostname.match(/^[0-9a-zA-Z]+$/)) {
+      return false;
+    }
+
     // We don't want a hash. lol.
     parsed.hash = '';
 
@@ -264,7 +268,7 @@ class PageQueue
     }
 
     if(typeof options.redirectCount === 'undefined') {
-      options.redirectCount = 0
+      options.redirectCount = 0;
     }
 
     if(typeof options.referer === 'undefined') {

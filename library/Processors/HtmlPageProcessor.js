@@ -3,6 +3,8 @@ const domutils = require('domutils');
 const url = require('url');
 const querystring = require('querystring');
 const he = require('he');
+const path = require('path');
+
 /*
 getInnerHTML: [Function: bound getInnerHTML],
   getOuterHTML: [Function: bound ],
@@ -40,10 +42,11 @@ getInnerHTML: [Function: bound getInnerHTML],
 */
 class HtmlPageProcessor
 {
-  constructor(pageQueue, crawlerSettings)
+  constructor(pageQueue, crawlerSettings, schemaProcessor)
   {
     this.crawlerSettings = crawlerSettings;
     this.pageQueue = pageQueue;
+    this.schemaProcessor = schemaProcessor;
   }
 
   /**
@@ -68,35 +71,200 @@ class HtmlPageProcessor
         return;
       }
 
-      const openGraphElements = domutils.find(
-        restraint => (
-          restraint.type === 'tag' &&
-          restraint.name == 'meta' &&
-          restraint.attribs.property &&
-          restraint.attribs.property.substring(0, 3) == 'og:'
-        ), head.children
-      );
+      let permissions = {
+        permitIndex: true,
+        permitFollow: true,
+        permitImageIndex: true,
+        permitArchive: true,
+        permitTranslate: true,
+        permitSnippet: true,
+      };
 
-      const anchorElements = domutils.find(
-        restraint => {
-          return restraint.name == 'a'
-        }, body.children, true
-      );
+      // getting metadata about robot permissions
+      await this._handleRobotsMetadata(permissions, response, head);
 
-      await this._handleAnchors(anchorElements, subject, subjectOptions);
+      if(!permissions.permitIndex) {
+        // No indexing is allowed.
+        return;
+      }
 
+      if(permissions.permitFollow) {
+        const anchorElements = domutils.find(
+          restraint => {
+            return restraint.name == 'a'
+          }, body.children, true
+        );
 
+        await this._handleAnchors(anchorElements, subject, subjectOptions);
+      }
+
+      // Classifying page
+      const classification = await this._classifyPage(head, body, response, subject, subjectOptions);
+      const processedSchemas = await this.schemaProcessor.processDom(dom, subject);
+      console.log(processedSchemas);
+
+      //console.log(classification);
+
+      if(permissions.permitImageIndex) {
+        // TODO: Scan and index images.
+      }
 
       //console.log(head.name);
-      for (const child of head.children) {
+      /*for (const child of head.children) {
         if(['script', 'link'].includes(child.type)) {
           //console.log(child);
         }
-      }
+      }*/
     }
     catch(ex) {
       console.log(`Error for ${subject}`);
       console.error(ex);
+    }
+  }
+
+  /**
+  * Gets information about the page for the index. Keywords, title, locale,
+  * description, and much more.
+  */
+  async _classifyPage(domHead, domBody, response, subject, subjectOptions)
+  {
+    const subjectParsed = url.parse(subject);
+    const openGraphElements = domutils.find(
+      restraint => (
+        restraint.type === 'tag' &&
+        restraint.name == 'meta' &&
+        typeof restraint.attribs.property === 'string' &&
+        restraint.attribs.property.substring(0, 3) == 'og:'
+      ), domHead.children
+    );
+
+    let title = domutils.findOne(
+      restraint => (
+        restraint.type === 'tag' &&
+        restraint.name == 'title'
+      ), domHead.children
+    );
+
+    // Try find a H1 in document, if failed to get title.
+    title = title || domutils.findOne(
+      restraint => (
+        restraint.type === 'tag' &&
+        restraint.name == 'h1' &&
+        restraint.children.length > 0 &&
+        restraint.children[0].type === 'text' &&
+        restraint.children[0].data.length > 0
+      ), domBody.children
+    );
+
+    // Try find title from URL, as we failed to get from body and title
+    // element
+    title = title || `${path.basename(subjectParsed.pathname)} - ${subjectParsed.hostname}`;
+
+    let description = domutils.findOne(
+      restraint => (
+        restraint.name == 'meta' &&
+        typeof restraint.attribs === 'object' &&
+        typeof restraint.attribs.name === 'string' &&
+        typeof restraint.attribs.content === 'string'
+      ), domHead.children
+    );
+
+    description = description || domutils.findOne(
+      restraint => (
+        restraint.name == 'p'
+      ), domBody.children
+    );
+
+    return {
+      title: (typeof title == 'string'
+        ? title
+        : he.decode(domutils.getInnerHTML(title)).trim()
+      ),
+
+      description: (typeof title == 'string'
+        ? title
+        : he.decode(domutils.getInnerHTML(title)).trim()
+      )
+    };
+  }
+
+  /**
+  * Scans metadata (in http headers, and html head) and gets data about whether
+  * we can or cant index the page -- metadata is set in permissions parameter.
+  */
+  async _handleRobotsMetadata(permissions, response, head)
+  {
+    // Checking indexing headers (whether or not we got permission to crawl)
+    let robotsPermit = response.headers['x-robots-tag'] || null;
+
+    // If we didn't get any data from the http header 'x-robots-tag', check
+    // html header metadata.
+    if(!robotsPermit) {
+      robotsPermit = domutils.findOne(
+        restraint => (
+          typeof restraint.attribs === 'object' &&
+          typeof restraint.attribs.name === 'string' &&
+          restraint.attribs.name.toLowerCase() === 'robots'
+        ), head.children
+      );
+
+      if(robotsPermit) {
+        if(typeof robotsPermit.attribs.content === 'string') {
+          robotsPermit = robotsPermit.attribs.content;
+        }
+        else {
+          robotsPermit = null;
+        }
+      }
+    }
+
+    // If robots instructions were found, process them.
+    if(robotsPermit) {
+      const robotActions = robotsPermit.split(',').map(
+        robotAction => robotAction.trim().toLowerCase()
+      );
+
+      for(const robotAction of robotActions) {
+        switch (robotAction) {
+          case 'noindex': {
+            permissions.permitIndex = false;
+            break;
+          }
+
+          case 'nofollow': {
+            permissions.permitFollow = false;
+            break;
+          }
+
+          case 'noimageindex': {
+            permissions.permitImageIndex = false;
+            break;
+          }
+
+          case 'noarchive': {
+            permissions.permitArchive = false;
+            break;
+          }
+
+          case 'nosnippet': {
+            permissions.permitSnippet = false;
+            break;
+          }
+
+          case 'notranslate': {
+            permissions.permitTranslate = false;
+            break;
+          }
+
+          case 'none': {
+            permissions.permitIndex = false;
+            permissions.permitFollow = false;
+            break;
+          }
+
+          default: continue;
+        }
+      }
     }
   }
 
@@ -183,7 +351,9 @@ class HtmlPageProcessor
 
         if(await this.pageQueue.pushQueue(
           url.resolve(subject, he.decode(anchor))
-        )) {
+        ), {
+          referer: subject
+        }) {
           insertCount++
         }
       }
@@ -208,7 +378,9 @@ class HtmlPageProcessor
 
           if(await this.pageQueue.pushQueue(
             url.resolve(subject, he.decode(anchor))
-          )) {
+          ), {
+            referer: subject
+          }) {
             insertCount++
           }
         }
@@ -233,7 +405,9 @@ class HtmlPageProcessor
 
           if(await this.pageQueue.pushQueue(
             url.resolve(subject, he.decode(anchor))
-          )) {
+          ), {
+            referer: subject
+          }) {
             insertCount++
           }
         }

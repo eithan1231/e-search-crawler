@@ -121,7 +121,7 @@ class Crawler
 
         // Setting referer header.
         if(subjectOptions.referer) {
-          requestHeaders['Referer'] = subjectOptions;
+          requestHeaders['referer'] = subjectOptions.referer;
         }
 
         let requestCookies = await this.cookieContainer.getCookies(
@@ -169,11 +169,11 @@ class Crawler
         }
 
         if(statusType === 2) {
-          console.log(`Success ${statusType}xx - ${subject}`);
-
           let contentType = Crawler._cleanContentType(
             response.headers['content-type'] || 'application/x-octet'
           );
+
+          console.log(`Success ${statusType}xx - ${contentType} - ${subject}`);
 
           switch (contentType) {
             case 'text/html': {
@@ -183,6 +183,20 @@ class Crawler
                 subject,
                 subjectOptions
               );
+              break;
+            }
+
+            case 'image/png':
+            case 'image/jpeg':
+            case 'image/gif':
+            case 'image/bmp':
+            case 'image/svg+xml':
+            case 'image/gif':
+            case 'image/x-icon': {
+              break;
+            }
+
+            default: {
               break;
             }
           }

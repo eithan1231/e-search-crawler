@@ -11,6 +11,7 @@
   "author": "Eithan",
   "license": "MIT",
   "dependencies": {
+    "@elastic/elasticsearch": "^7.1.0",
     "decompress-response": "^4.2.0",
     "domutils": "^1.7.0",
     "he": "^1.2.0",

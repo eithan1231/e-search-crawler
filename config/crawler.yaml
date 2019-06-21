@@ -2,7 +2,7 @@
 # Default: 32
 concurrency: 32
 
-# maximum retrys for a crawler.
+# maximum retrys for a crawler. We recommend this to be high.
 # Default: 100
 retryThreshold: 100
 
@@ -19,7 +19,7 @@ cookieDurationLimit: 3600
 retryErrorCount: 3
 
 # Restricts the amount of entries a specific domain can have in queue. Prevents
-# over-crawling of a specific page.
+# over-crawling of a specific website.
 # NOTE: Whenever you reach this limit, and it crawls a page. The possibility of
 # it re-adding a url on the same hostname to the queue is high. So try keep this
 # low, as it will still continue to crawl the site when limit is reached.
@@ -27,6 +27,11 @@ retryErrorCount: 3
 domainQueueLimit: 17
 
 # Maximum amount of URL's we can scrape from a singular page. The default value
-# may even perhaps be too big.
+# may even perhaps be too big. The first few hours of crawling, we would
+# recommend this being higher. After a while of running, lower this a little.
+# NOTE: It prioritizes other websites over the one that was crawled (IE: If it
+# crawled youtube, and youtube had a link to google. It would add the google
+# url to the queue before other youtube links. This is to influence more diverse
+# crawling)
 # Default: 9
 maxPageUrlScrape: 9

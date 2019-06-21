@@ -8,6 +8,7 @@ const crawlerConfig = yaml.safeLoad(fs.readFileSync('config/crawler.yaml'));
 const WikipediaProcessor = require('./library/Processors/WikipediaProcessor');
 const WikidataProcessor = require('./library/Processors/WikidataProcessor');
 const HtmlPageProcessor = require('./library/Processors/HtmlPageProcessor');
+const SchemaProcessor = require('./library/Processors/SchemaProcessor');
 const CookieContainer = require('./library/CookieContainer');
 const PageQueue = require('./library/PageQueue');
 const Plugins = require('./library/Plugins');
@@ -45,16 +46,17 @@ async function main()
     const plugins = new Plugins();
     const pageQueue = new PageQueue(redisClient);
     const robots = new Robots(redisClient, userAgent);
-    const htmlPageProcessor = new HtmlPageProcessor(pageQueue, crawlerConfig);
+    const schemaProcessor = new SchemaProcessor();
+    const htmlPageProcessor = new HtmlPageProcessor(pageQueue, crawlerConfig, schemaProcessor);
     const cookieContainer = new CookieContainer(
       redisClient,
       plugins,
       crawlerConfig.cookieDurationLimit
     );
 
-    pageQueue.forceQueue('http://dmozlive.com');
-    pageQueue.forceQueue('https://lechr.com');
-    pageQueue.forceQueue('https://www.youtube.com/watch?v=zAPhp9LYq44');
+    pageQueue.pushQueue('http://dmozlive.com');
+    pageQueue.pushQueue('http://google.com');
+    pageQueue.pushQueue('http://mpgh.net');
 
     // Starting the crawler.
     const crawler = new Crawler({
